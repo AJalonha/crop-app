@@ -79,7 +79,7 @@ def process():
  
     tasks = [(filename, data, mode, template_bytes) for filename, data in images]
  
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         results = list(executor.map(process_one, tasks))
  
     zip_buffer = io.BytesIO()
