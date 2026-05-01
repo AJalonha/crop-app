@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Cropper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    h1 { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 28px; }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .drop-zone {
+      border: 2px dashed #e0e0e0;
+      border-radius: 12px;
+      padding: 28px 20px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #4f46e5;
+      background: #f5f3ff;
+    }
+    .drop-zone input { display: none; }
+    .drop-icon { font-size: 32px; margin-bottom: 8px; }
+    .drop-label { font-size: 14px; color: #555; }
+    .drop-label span { color: #4f46e5; font-weight: 600; }
+    .file-count { margin-top: 6px; font-size: 13px; color: #888; }
+
+    .mode-toggle {
+      display: flex;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .mode-toggle label {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #666;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-toggle input[type="radio"] { display: none; }
+    .mode-toggle input[type="radio"]:checked + label {
+      background: #4f46e5;
+      color: white;
+    }
+
+    #templateSection { margin-bottom: 20px; }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 14px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: #4338ca; }
+    button[type="submit"]:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+    #status { margin-top: 14px; font-size: 14px; color: #666; text-align: center; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>QR Cropper</h1>
+    <p class="subtitle">Crop QR codes and optionally place them on a template.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+
+      <!-- Step 1: QR Images -->
+      <div class="section-label">1. Upload QR Images</div>
+      <div class="drop-zone" id="qrDropZone">
+        <input type="file" id="qrInput" name="qr_images" multiple accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff" />
+        <div class="drop-icon">📂</div>
+        <div class="drop-label">Drag & drop images or <span>browse</span></div>
+        <div class="file-count" id="qrCount">No files selected</div>
+      </div>
+
+      <!-- Step 2: Output mode -->
+      <div class="section-label">2. Choose Output</div>
+      <div class="mode-toggle">
+        <input type="radio" name="mode" id="modeCrop" value="crop" checked />
+        <label for="modeCrop">Cropped only</label>
+        <input type="radio" name="mode" id="modeComposite" value="composite" />
+        <label for="modeComposite">Place on template</label>
+      </div>
+
+      <!-- Step 3: Template -->
+      <div id="templateSection" style="display:none;">
+        <div class="section-label">3. Upload Template</div>
+        <div class="drop-zone" id="templateDropZone">
+          <input type="file" name="template" id="templateInput" accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff" />
+          <div class="drop-icon">🖼️</div>
+          <div class="drop-label">Drag & drop template or <span>browse</span></div>
+          <div class="file-count" id="templateCount">No file selected</div>
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn" disabled>Download</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    let qrFiles = null;
+    let templateFiles = null;
+
+    function makeDropZone(zoneId, inputId, countId, multi) {
+      const zone  = document.getElementById(zoneId);
+      const input = document.getElementById(inputId);
+      const count = document.getElementById(countId);
+
+      zone.addEventListener("click", () => input.click());
+      zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
+      zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+      zone.addEventListener("drop", e => {
+        e.preventDefault();
+        zone.classList.remove("dragover");
+        const files = Array.from(e.dataTransfer.items)
+          .filter(i => i.kind === "file").map(i => i.getAsFile());
+        if (zoneId === "qrDropZone") qrFiles = files;
+        else templateFiles = [files[0]];
+        count.textContent = multi
+          ? (files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "No files selected")
+          : (files[0]?.name || "No file selected");
+        checkReady();
+      });
+      input.addEventListener("change", function() {
+        const files = Array.from(this.files);
+        if (zoneId === "qrDropZone") qrFiles = files;
+        else templateFiles = files;
+        count.textContent = multi
+          ? (files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "No files selected")
+          : (files[0]?.name || "No file selected");
+        checkReady();
+      });
+    }
+
+    makeDropZone("qrDropZone",       "qrInput",       "qrCount",       true);
+    makeDropZone("templateDropZone", "templateInput", "templateCount", false);
+
+    document.querySelectorAll("input[name='mode']").forEach(r => r.addEventListener("change", () => {
+      document.getElementById("templateSection").style.display =
+        document.getElementById("modeComposite").checked ? "block" : "none";
+      checkReady();
+    }));
+
+    function checkReady() {
+      const composite = document.getElementById("modeComposite").checked;
+      document.getElementById("submitBtn").disabled =
+        !(qrFiles && qrFiles.length > 0) || (composite && !(templateFiles && templateFiles.length > 0));
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const submitBtn = document.getElementById("submitBtn");
+      const status    = document.getElementById("status");
+      submitBtn.disabled = true;
+      status.textContent = "Processing... please wait.";
+
+      const composite = document.getElementById("modeComposite").checked;
+      const formData  = new FormData();
+      qrFiles.forEach(f => formData.append("qr_images", f));
+      if (templateFiles) formData.append("template", templateFiles[0]);
+      formData.append("mode", composite ? "composite" : "crop");
+
+      const res = await fetch("/process", { method: "POST", body: formData });
+      if (res.ok) {
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = composite ? "composited_images.zip" : "cropped_images.zip";
+        a.click();
+        status.textContent = "Done! Your download should start automatically.";
+      } else {
+        status.textContent = "Error: " + await res.text();
+      }
+      submitBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
