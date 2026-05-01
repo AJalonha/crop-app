@@ -38,13 +38,12 @@ def extract_images_from_upload(files):
  
  
 def process_one(args):
-    filename, data, mode, template_bytes = args
+    filename, data, mode, template = args
     try:
         img = Image.open(data).convert("RGBA")
         cropped = img.crop((CROP_X, CROP_Y, CROP_X + CROP_W, CROP_Y + CROP_H))
  
         if mode == "composite":
-            template = Image.open(io.BytesIO(template_bytes)).convert("RGBA")
             canvas = template.copy()
             canvas.paste(cropped, (PASTE_X, PASTE_Y), cropped)
             result = canvas
@@ -75,9 +74,9 @@ def process():
     if not images:
         return "No valid images found. Upload images or a zip file.", 400
  
-    template_bytes = template_file.read() if mode == "composite" else None
+    template = Image.open(template_file).convert("RGBA") if mode == "composite" else None
  
-    tasks = [(filename, data, mode, template_bytes) for filename, data in images]
+    tasks = [(filename, data, mode, template) for filename, data in images]
  
     with ThreadPoolExecutor(max_workers=3) as executor:
         results = list(executor.map(process_one, tasks))
