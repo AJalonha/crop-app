@@ -1,4 +1,4 @@
 flask
-pillow
+pillow==10.4.0
 werkzeug
 gunicorn
