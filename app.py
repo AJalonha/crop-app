@@ -75,9 +75,12 @@ def process():
                     result = cropped
                     out_name = Path(filename).stem + ".png"
 
-                out = io.BytesIO()
-                result.save(out, "PNG")
-                zf.writestr(out_name, out.getvalue())
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    tmp_path = tmp.name
+                result.save(tmp_path, "PNG")
+                with open(tmp_path, "rb") as f:
+                    zf.writestr(out_name, f.read())
+                os.unlink(tmp_path)
                 count += 1
             except Exception:
                 continue
