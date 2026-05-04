@@ -236,6 +236,8 @@
       qrFiles.forEach(f => formData.append("qr_images", f));
       if (templateFiles) formData.append("template", templateFiles[0]);
       formData.append("mode", composite ? "composite" : "crop");
+      formData.append("paste_x", document.getElementById("pasteX").value);
+      formData.append("paste_y", document.getElementById("pasteY").value);
 
       const res = await fetch("/process", { method: "POST", body: formData });
       if (res.ok) {
