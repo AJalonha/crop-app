@@ -156,7 +156,7 @@
           <div class="file-count" id="templateCount">No file selected</div>
         </div>
 
-        <div class="section-label">4. Placement Position</div>
+        <div class="section-label">4. Placement Position & Zoom</div>
         <div class="coord-row">
           <label>
             X Position
@@ -165,6 +165,10 @@
           <label>
             Y Position
             <input type="number" id="pasteY" name="paste_y" value="1492" min="0" />
+          </label>
+          <label>
+            Zoom %
+            <input type="number" id="zoom" name="zoom" value="100" min="1" max="500" />
           </label>
         </div>
       </div>
@@ -238,6 +242,7 @@
       formData.append("mode", composite ? "composite" : "crop");
       formData.append("paste_x", document.getElementById("pasteX").value);
       formData.append("paste_y", document.getElementById("pasteY").value);
+      formData.append("zoom", document.getElementById("zoom").value);
 
       const res = await fetch("/process", { method: "POST", body: formData });
       if (res.ok) {

@@ -38,10 +38,15 @@ def extract_images_from_upload(files):
 
 
 def process_one(args):
-    filename, data, mode, template, paste_x, paste_y = args
+    filename, data, mode, template, paste_x, paste_y, zoom = args
     try:
         img = Image.open(data).convert("RGBA")
         cropped = img.crop((CROP_X, CROP_Y, CROP_X + CROP_W, CROP_Y + CROP_H))
+
+        if zoom != 100:
+            new_w = int(cropped.width * zoom / 100)
+            new_h = int(cropped.height * zoom / 100)
+            cropped = cropped.resize((new_w, new_h), Image.LANCZOS)
 
         if mode == "composite":
             canvas = template.copy()
@@ -76,9 +81,10 @@ def process():
 
     paste_x = int(request.form.get("paste_x", PASTE_X))
     paste_y = int(request.form.get("paste_y", PASTE_Y))
+    zoom    = float(request.form.get("zoom", 100))
     template = Image.open(template_file).convert("RGBA") if mode == "composite" else None
 
-    tasks = [(filename, data, mode, template, paste_x, paste_y) for filename, data in images]
+    tasks = [(filename, data, mode, template, paste_x, paste_y, zoom) for filename, data in images]
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         results = list(executor.map(process_one, tasks))
