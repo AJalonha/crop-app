@@ -1,4 +1,5 @@
 flask
 pillow
+numpy
 werkzeug
 gunicorn

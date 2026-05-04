@@ -96,6 +96,22 @@
 
     #status { margin-top: 14px; font-size: 14px; color: #666; text-align: center; min-height: 20px; }
 
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #4f46e5;
+      cursor: pointer;
+    }
+
     .coord-row {
       display: flex;
       gap: 12px;
@@ -145,6 +161,12 @@
         <input type="radio" name="mode" id="modeComposite" value="composite" />
         <label for="modeComposite">Place on template</label>
       </div>
+
+      <!-- Remove BG checkbox -->
+      <label class="checkbox-row">
+        <input type="checkbox" id="removeBg" />
+        Remove white background from QR images
+      </label>
 
       <!-- Step 3: Template -->
       <div id="templateSection" style="display:none;">
@@ -243,6 +265,7 @@
       formData.append("paste_x", document.getElementById("pasteX").value);
       formData.append("paste_y", document.getElementById("pasteY").value);
       formData.append("zoom", document.getElementById("zoom").value);
+      formData.append("remove_bg", document.getElementById("removeBg").checked ? "true" : "false");
 
       const res = await fetch("/process", { method: "POST", body: formData });
       if (res.ok) {

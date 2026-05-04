@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from flask import Flask, render_template, request, send_file
 from PIL import Image
+import numpy as np
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -37,8 +38,17 @@ def extract_images_from_upload(files):
     return images
 
 
+def remove_white_bg(img, threshold=240):
+    img = img.convert("RGBA")
+    data = np.array(img)
+    r, g, b, a = data[:, :, 0], data[:, :, 1], data[:, :, 2], data[:, :, 3]
+    white_mask = (r >= threshold) & (g >= threshold) & (b >= threshold)
+    data[:, :, 3] = np.where(white_mask, 0, a)
+    return Image.fromarray(data)
+
+
 def process_one(args):
-    filename, data, mode, template, paste_x, paste_y, zoom = args
+    filename, data, mode, template, paste_x, paste_y, zoom, remove_bg = args
     try:
         img = Image.open(data).convert("RGBA")
         cropped = img.crop((CROP_X, CROP_Y, CROP_X + CROP_W, CROP_Y + CROP_H))
@@ -48,6 +58,9 @@ def process_one(args):
             new_h = int(cropped.height * zoom / 100)
             cropped = cropped.resize((new_w, new_h), Image.LANCZOS)
 
+        if remove_bg:
+            cropped = remove_white_bg(cropped)
+
         if mode == "composite":
             canvas = template.copy()
             canvas.paste(cropped, (paste_x, paste_y), cropped)
@@ -55,10 +68,13 @@ def process_one(args):
             out_name = Path(filename).stem + "_final.jpg"
         else:
             result = cropped
-            out_name = Path(filename).stem + ".jpg"
+            out_name = Path(filename).stem + ".png"
 
         out = io.BytesIO()
-        result.convert("RGB").save(out, "JPEG", quality=95)
+        if mode == "composite":
+            result.convert("RGB").save(out, "JPEG", quality=95)
+        else:
+            result.save(out, "PNG")
         return (out_name, out.getvalue())
     except Exception:
         return None
@@ -79,12 +95,13 @@ def process():
     if not images:
         return "No valid images found. Upload images or a zip file.", 400
 
-    paste_x = int(request.form.get("paste_x", PASTE_X))
-    paste_y = int(request.form.get("paste_y", PASTE_Y))
-    zoom    = float(request.form.get("zoom", 100))
-    template = Image.open(template_file).convert("RGBA") if mode == "composite" else None
+    paste_x   = int(request.form.get("paste_x", PASTE_X))
+    paste_y   = int(request.form.get("paste_y", PASTE_Y))
+    zoom      = float(request.form.get("zoom", 100))
+    remove_bg = request.form.get("remove_bg") == "true"
+    template  = Image.open(template_file).convert("RGBA") if mode == "composite" else None
 
-    tasks = [(filename, data, mode, template, paste_x, paste_y, zoom) for filename, data in images]
+    tasks = [(filename, data, mode, template, paste_x, paste_y, zoom, remove_bg) for filename, data in images]
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         results = list(executor.map(process_one, tasks))
